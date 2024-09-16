@@ -11,7 +11,7 @@ def generate_tone(frequency, duration, sample_rate=44100, amplitude=0.5):
     audio = amplitude * np.sin(2 * np.pi * frequency * t)  # Generate sine wave
     return audio
 
-def save_tone(frequency, duration=2, ear='both'):
+def save_tone(frequency, duration=60, ear='both'):
     """Generates and saves a tone for a specific frequency and ear."""
     sample_rate = 44100  # Standard sample rate for audio
     audio = generate_tone(frequency, duration, sample_rate)
@@ -19,11 +19,11 @@ def save_tone(frequency, duration=2, ear='both'):
     if ear == 'right':
         # Mono: Right channel only (second channel)
         audio_stereo = np.zeros((len(audio), 2))
-        audio_stereo[:, 1] = audio
+        audio_stereo[:, 1] = audio  # Right channel sound
     elif ear == 'left':
         # Mono: Left channel only (first channel)
         audio_stereo = np.zeros((len(audio), 2))
-        audio_stereo[:, 0] = audio
+        audio_stereo[:, 0] = audio  # Left channel sound
     else:
         # Stereo: Both channels
         audio_stereo = np.column_stack((audio, audio))
@@ -39,4 +39,4 @@ ears = ['left', 'right']  # Ear selection
 
 for freq in frequencies:
     for ear in ears:
-        save_tone(freq, ear=ear)
+        save_tone(freq, ear=ear)  # 60-second tones for left and right ears
