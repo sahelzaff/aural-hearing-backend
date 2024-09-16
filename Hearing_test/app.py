@@ -4,7 +4,18 @@ import os
 from utils import generate_pdf_report
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for the entire application
+
+# Configure CORS to allow requests from specific origins
+cors = CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "http://localhost:3000",
+            "https://stagingauralhearingcare.netlify.app"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "supports_credentials": True
+    }
+})
 
 # Serve generated tones
 @app.route('/api/hearing-test/play-tone', methods=['GET'])
