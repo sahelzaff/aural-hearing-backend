@@ -3,3 +3,5 @@ Flask-Cors
 numpy
 scipy
 fpdf
+PyPDF2
+matplotlib
