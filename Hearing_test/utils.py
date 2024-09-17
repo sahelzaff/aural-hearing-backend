@@ -7,7 +7,6 @@ import tempfile
 import os
 
 def custom_response(question, answer):
-    # Your existing custom_response logic
     if question == "headphone_type":
         return ""  # Return an empty string for headphone_type
 
@@ -69,6 +68,7 @@ def custom_response(question, answer):
 
     return f"{question}: {answer}"  # Default response if no match is found
 
+
 def wrap_text(text, pdf, max_width):
     """Wrap text to fit within a given width in the PDF."""
     lines = []
@@ -88,6 +88,57 @@ def wrap_text(text, pdf, max_width):
     lines.append(line)
     return lines
 
+
+
+# Function to add Poppins font to fpdf
+def add_poppins_font(pdf):
+    pdf.add_font("Poppins", "", "Poppins-Regular.ttf", uni=True)
+    pdf.set_font("Poppins", size=11)
+
+# Function to generate the decibel graph
+def generate_decibel_graph(decibel_levels):
+    # Extract the keys and values from the decibel_levels dictionary
+    frequencies = list(decibel_levels.keys())
+    levels = list(decibel_levels.values())
+
+    # Extract frequency values and labels
+    freqs = [float(f.split()[0].replace('kHz', '')) for f in frequencies]
+    labels = frequencies
+    
+    # Create a scatter plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.scatter(freqs, levels, color='blue', s=100, edgecolor='black', zorder=5)
+    
+    # Connect points with a line
+    ax.plot(freqs, levels, color='blue', linestyle='-', linewidth=2, zorder=1)
+    
+    # Set the limits and labels
+    ax.set_xlim(min(freqs) - 0.5, max(freqs) + 0.5)
+    ax.set_ylim(min(levels) - 10, max(levels) + 10)
+    
+    # Add grid
+    ax.grid(True, which='both', linestyle='--', linewidth=0.7, alpha=0.7)
+
+    # Set titles and labels
+    ax.set_title("Audiogram", fontsize=14)
+    ax.set_xlabel("Frequency (kHz)", fontsize=12)
+    ax.set_ylabel("Decibel Level (dB)", fontsize=12)
+    
+    # Annotate points with frequency labels
+    for i, txt in enumerate(labels):
+        ax.annotate(txt, (freqs[i], levels[i]), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9)
+
+    # Rotate x-axis labels for better readability
+    plt.xticks(rotation=45)
+    
+    # Save the plot to a BytesIO object
+    image_stream = BytesIO()
+    plt.savefig(image_stream, format='png', bbox_inches='tight')
+    image_stream.seek(0)  # Go to the start of the stream
+    plt.close()  # Close the plot to avoid overlap
+
+    return image_stream
+    
 # Function to generate the dynamic content on the PDF
 def generate_dynamic_pdf(data, decibel_levels):
     pdf = FPDF()
