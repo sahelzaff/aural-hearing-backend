@@ -2,7 +2,7 @@ import numpy as np
 from scipy.io.wavfile import write
 import os
 
-# Directory to store generated sound files
+
 os.makedirs("tones", exist_ok=True)
 
 def generate_tone(frequency, duration, sample_rate=44100, amplitude=0.5):
@@ -35,7 +35,7 @@ def save_tone(frequency, duration=60, ear='both'):
 
 
 frequencies = [1000, 2000, 4000, 6000]  
-ears = ['left', 'right']  # Ear selection
+ears = ['left', 'right'] 
 
 for freq in frequencies:
     for ear in ears:
