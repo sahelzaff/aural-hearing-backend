@@ -1,15 +1,19 @@
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import os
-from speech_test import get_speech_tests
+import numpy as np
+import soundfile as sf
 import io
-from test_report_generate import generate_hearing_report  # Import the report generation function
+from test_report_generate import generate_hearing_report
+from speech_test import get_speech_tests, pan_audio
+import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000","http://localhost:3001", "https://stagingauralhearingcare.netlify.app"]}})
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://localhost:3001", "https://stagingauralhearingcare.netlify.app"]}})
 
-# Global variable to store the generated report
-generated_report = None
+def generate_tone(frequency, duration=1, sample_rate=44100):
+    t = np.linspace(0, duration, int(sample_rate * duration), False)
+    tone = np.sin(2 * np.pi * frequency * t)
+    return (tone * 32767).astype(np.int16)
 
 @app.route('/api/speech-test', methods=['GET'])
 def get_speech_test_audio():
@@ -33,86 +37,83 @@ def get_speech_test_audio():
 
 @app.route('/api/speech-test/<ear>/audio/<int:round_number>', methods=['GET'])
 def serve_speech_test_audio(ear, round_number):
-    if ear not in ['left', 'right'] or round_number not in [1, 2, 3]:
+    if ear not in ['left', 'right'] or round_number not in [1, 2]:
         return jsonify({"error": "Invalid ear or round number"}), 400
 
     try:
         speech_tests = get_speech_tests()
-        audio_data = next(audio for r, _, _, audio in speech_tests[ear] if r == round_number)
+        audio_file = next(audio_file for r, _, _, audio_file in speech_tests[ear] if r == round_number)
+        
+        print(f"Attempting to serve audio file: {audio_file}")
+        
+        if not os.path.exists(audio_file):
+            print(f"Audio file not found: {audio_file}")
+            return jsonify({"error": f"Audio file not found: {audio_file}"}), 404
+
+        panned_audio = pan_audio(audio_file, ear)
         
         return send_file(
-            io.BytesIO(audio_data),
+            io.BytesIO(panned_audio),
             mimetype='audio/wav',
             as_attachment=True,
             download_name=f'speech_test_{ear}_round_{round_number}.wav'
         )
     except Exception as e:
+        print(f"Error serving audio file: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
     
 
 @app.route('/api/hearing-test/play-tone', methods=['GET'])
 def play_hearing_tone():
-    frequency = request.args.get("frequency", "1000")
+    frequency = int(request.args.get("frequency", "1000"))
     ear = request.args.get("ear", "right")
 
-
-    valid_frequencies = ["1000", "2000", "3000", "4000"]
+    valid_frequencies = [250, 500, 1000, 2000, 4000, 8000]
     valid_ears = ["left", "right"]
 
     if frequency not in valid_frequencies or ear not in valid_ears:
         return jsonify({"error": "Invalid frequency or ear parameter"}), 400
 
-   
-    file_path = f"tones/{frequency}Hz_{ear}.wav"
-    if not os.path.exists(file_path):
-        return jsonify({"error": "Tone not found"}), 404
+    tone = generate_tone(frequency)
+    
+    # Create stereo audio with the tone in the specified ear
+    stereo_tone = np.zeros((len(tone), 2), dtype=np.int16)
+    if ear == "left":
+        stereo_tone[:, 0] = tone
+    else:
+        stereo_tone[:, 1] = tone
 
-    return send_file(file_path, as_attachment=True)
+    buffer = io.BytesIO()
+    sf.write(buffer, stereo_tone, 44100, format='wav')
+    buffer.seek(0)
 
-# @app.route('/api/hearing-test/submit', methods=['POST'])
-# def submit_hearing_test():
-#     data = request.json
-
-#     if 'full_name' not in data or 'age' not in data or 'contact' not in data or 'answers' not in data or 'decibelLevels' not in data or 'speechTestResults' not in data:
-#         return jsonify({"error": "Invalid input data"}), 400
-
-#     decibel_levels = data['decibelLevels']
-#     speech_test_results = data['speechTestResults']
-
-#     # Process the data and generate the PDF report
-#     pdf_file = merge_with_template('Template_Report.pdf', data, decibel_levels, speech_test_results)
-
-#     return send_file(pdf_file, as_attachment=True)
+    return send_file(buffer, mimetype='audio/wav')
 
 @app.route('/api/hearing-test/submit', methods=['POST'])
 def submit_hearing_test():
-    global generated_report
     data = request.json
+    print("Received data:", data)  # Add this line for debugging
 
-    if 'full_name' not in data or 'age' not in data or 'contact' not in data or 'answers' not in data or 'decibelLevels' not in data or 'speechTestResults' not in data:
+    if not all(key in data for key in ['full_name', 'age', 'contact', 'answers', 'toneTestResults', 'speechTestResults']):
         return jsonify({"error": "Invalid input data"}), 400
 
     try:
-        # Generate the report using the data
-        generated_report = generate_hearing_report(data)
-        
-        return jsonify({"message": "Test results received and report generated successfully"}), 200
+        report = generate_hearing_report(data)
+        return jsonify({"message": "Test results received and report generated successfully", "report": report}), 200
     except Exception as e:
+        print("Error generating report:", str(e))  # Add this line for debugging
         return jsonify({"error": f"Error generating report: {str(e)}"}), 500
 
 @app.route('/api/hearing-test/report', methods=['GET'])
 def get_hearing_test_report():
-    global generated_report
-    if generated_report is None:
-        return jsonify({"error": "No report has been generated yet"}), 404
-    
-    return jsonify(generated_report), 200
+    # This route should be implemented to return the last generated report
+    # For now, we'll return a placeholder message
+    return jsonify({"message": "Report retrieval not implemented yet"}), 501
 
 @app.route('/')
 def status():
     return render_template('status.html')
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True)

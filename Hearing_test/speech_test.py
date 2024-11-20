@@ -60,9 +60,39 @@ def get_speech_tests():
     Get speech tests for both ears.
     
     :return: dictionary with 'left' and 'right' keys, each containing a list of 
-             (round_number, conversation_number, words, audio_data) tuples
+             (round_number, conversation_number, words, audio_file_path) tuples
     """
-    return {
-        'left': get_speech_test('left'),
-        'right': get_speech_test('right')
+    # Define the path to your audio files
+    audio_path = os.path.join(os.path.dirname(__file__), 'speech_audio')
+    
+    speech_tests = {
+        'left': [
+            (1, 1, ["Boat", "Cat", "Dog"], os.path.join(audio_path, 'Mid_Bg/conversation_1.wav')),
+            (2, 2, ["Fish", "Bird", "Car"], os.path.join(audio_path, 'High_Bg/conversation_2.wav')),
+        ],
+        'right': [
+            (1, 1, ["Tree", "Book", "House"], os.path.join(audio_path, 'Mid_Bg/conversation_3.wav')),
+            (2, 2, ["Ball", "Sun", "Moon"], os.path.join(audio_path, 'High_Bg/conversation_1.wav')),
+        ]
     }
+    return speech_tests
+
+def pan_audio(audio_file_path, ear):
+    """
+    Pan the audio to the specified ear.
+    
+    :param audio_file_path: Path to the audio file
+    :param ear: 'left' or 'right'
+    :return: Panned audio as bytes
+    """
+    audio = AudioSegment.from_wav(audio_file_path)
+    if ear == 'left':
+        panned_audio = audio.pan(-1)
+    elif ear == 'right':
+        panned_audio = audio.pan(1)
+    else:
+        raise ValueError("Invalid ear specified. Must be 'left' or 'right'.")
+    
+    buffer = io.BytesIO()
+    panned_audio.export(buffer, format="wav")
+    return buffer.getvalue()
