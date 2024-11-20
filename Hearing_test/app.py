@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 import numpy as np
 import soundfile as sf
@@ -115,5 +115,10 @@ def get_hearing_test_report():
 def status():
     return render_template('status.html')
 
+@app.route('/status')
+def status_check():
+    return render_template('status.html')
+
 if __name__ == '__main__':
     app.run(debug=True)
+    
